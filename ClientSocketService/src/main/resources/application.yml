@@ -1,0 +1,30 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: ClientSocketService
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/uber_db_local}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:Nasir@02}
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      group-id: socket-group
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true

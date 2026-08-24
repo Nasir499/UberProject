@@ -1,0 +1,78 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.example",
+    "module": "Uber-entityService",
+    "version": "1.0.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.2.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 23,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "Uber-entityService-1.0.0-plain.jar",
+          "url": "Uber-entityService-1.0.0-plain.jar",
+          "size": 16273,
+          "sha512": "90b981124a92a95b582b26bc3d207a3ea323e227a80eedc2ac6f447d9e43d9ab7f2aaba020b477b4d51f8aec9de70f7ab7337ba5bf5d64853901ae0e0afed806",
+          "sha256": "07aaf3c024983ce7d5fc5cb2733e51ea59785f4fd27c45e36f5b651338d20f35",
+          "sha1": "8693ca95824da213736ce0a6fe9867e1f694b43d",
+          "md5": "fafaf067521a45b1828173a48ca39259"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 23,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.springframework.boot",
+          "module": "spring-boot-starter-data-jpa"
+        },
+        {
+          "group": "org.springframework.boot",
+          "module": "spring-boot-starter-flyway"
+        },
+        {
+          "group": "org.flywaydb",
+          "module": "flyway-mysql"
+        },
+        {
+          "group": "com.mysql",
+          "module": "mysql-connector-j"
+        }
+      ],
+      "files": [
+        {
+          "name": "Uber-entityService-1.0.0-plain.jar",
+          "url": "Uber-entityService-1.0.0-plain.jar",
+          "size": 16273,
+          "sha512": "90b981124a92a95b582b26bc3d207a3ea323e227a80eedc2ac6f447d9e43d9ab7f2aaba020b477b4d51f8aec9de70f7ab7337ba5bf5d64853901ae0e0afed806",
+          "sha256": "07aaf3c024983ce7d5fc5cb2733e51ea59785f4fd27c45e36f5b651338d20f35",
+          "sha1": "8693ca95824da213736ce0a6fe9867e1f694b43d",
+          "md5": "fafaf067521a45b1828173a48ca39259"
+        }
+      ]
+    }
+  ]
+}

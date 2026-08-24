@@ -1,0 +1,1304 @@
+{
+  "info": {
+    "name": "Uber Backend - Full API Collection",
+    "_postman_id": "uber-backend-collection-2026",
+    "description": "Complete API collection for Uber Backend microservices project.\n\n## Services\n- **Auth Service** (port 7474) — Passenger authentication\n- **Booking Service** (port 7777) — Ride bookings\n- **Review Service** (port 7475) — Booking reviews (full CRUD)\n- **Location Service** (port 7478) — Driver location tracking (Redis GEO)\n- **Socket Service** (port 8086) — WebSocket/STOMP for real-time ride requests\n\n## Gateway\nAll APIs are accessible via the API Gateway at `http://localhost:8080`.\n\n## WebSocket\n- STOMP endpoint: `ws://localhost:8086/ws`\n- App destination prefix: `/app`\n- Topic prefix: `/topic`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "gateway_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "auth_url",
+      "value": "http://localhost:7474",
+      "type": "string"
+    },
+    {
+      "key": "booking_url",
+      "value": "http://localhost:7777",
+      "type": "string"
+    },
+    {
+      "key": "review_url",
+      "value": "http://localhost:7475",
+      "type": "string"
+    },
+    {
+      "key": "location_url",
+      "value": "http://localhost:7478",
+      "type": "string"
+    },
+    {
+      "key": "socket_url",
+      "value": "http://localhost:8086",
+      "type": "string"
+    },
+    {
+      "key": "eureka_url",
+      "value": "http://localhost:8761",
+      "type": "string"
+    },
+    {
+      "key": "passengerId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "driverId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "reviewId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔍 Service Discovery (Eureka)",
+      "item": [
+        {
+          "name": "Eureka - Get All Registered Apps",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{eureka_url}}/eureka/apps",
+              "host": ["{{eureka_url}}"],
+              "path": ["eureka", "apps"]
+            },
+            "description": "Returns all applications registered with Eureka service discovery."
+          },
+          "response": [
+            {
+              "name": "All 6 Services Registered",
+              "originalRequest": {
+                "method": "GET",
+                "header": [{ "key": "Accept", "value": "application/json" }],
+                "url": { "raw": "{{eureka_url}}/eureka/apps", "host": ["{{eureka_url}}"], "path": ["eureka", "apps"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"applications\": {\n    \"versions__delta\": \"1\",\n    \"apps__hashcode\": \"UP_6_\",\n    \"application\": [\n      { \"name\": \"UBERAUTHSERVICE\", \"instance\": [{ \"status\": \"UP\", \"port\": { \"$\": 7474 } }] },\n      { \"name\": \"UBERBOOKINGSERVICE\", \"instance\": [{ \"status\": \"UP\", \"port\": { \"$\": 7777 } }] },\n      { \"name\": \"UBERREVIEWSERVICE\", \"instance\": [{ \"status\": \"UP\", \"port\": { \"$\": 7475 } }] },\n      { \"name\": \"UBERPROJECT-LOCATIONSERVICE\", \"instance\": [{ \"status\": \"UP\", \"port\": { \"$\": 7478 } }] },\n      { \"name\": \"CLIENTSOCKETSERVICE\", \"instance\": [{ \"status\": \"UP\", \"port\": { \"$\": 8086 } }] },\n      { \"name\": \"UBERAPIGATEWAY\", \"instance\": [{ \"status\": \"UP\", \"port\": { \"$\": 8080 } }] }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Eureka - Dashboard (HTML)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{eureka_url}}",
+              "host": ["{{eureka_url}}"]
+            },
+            "description": "Opens the Eureka dashboard (HTML view). Open in browser for visual dashboard."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔐 Auth Service",
+      "item": [
+        {
+          "name": "Passenger Signup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.collectionVariables.set('passengerId', jsonData.id);",
+                  "        console.log('Saved passengerId: ' + jsonData.id);",
+                  "    }",
+                  "    pm.test('Passenger signup successful', function () {",
+                  "        pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"phoneNumber\": \"+919876543210\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/auth/signup/passenger",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "auth", "signup", "passenger"]
+            },
+            "description": "Register a new passenger.\n\n**Request Body:** `PassengerSignupRequestDto`\n- `email` (String) — Must be unique\n- `password` (String)\n- `phoneNumber` (String) — Must be unique\n- `name` (String)\n\nAuto-saves `passengerId` on success."
+          },
+          "response": [
+            {
+              "name": "201 — Signup Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"phoneNumber\": \"+919876543210\"\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/auth/signup/passenger", "host": ["{{gateway_url}}"], "path": ["api", "v1", "auth", "signup", "passenger"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": null,\n  \"phoneNumber\": \"+919876543210\",\n  \"createdAt\": \"2026-08-16T11:10:00.000+00:00\"\n}"
+            },
+            {
+              "name": "409 — Duplicate Email",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"phoneNumber\": \"+919876543210\"\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/auth/signup/passenger", "host": ["{{gateway_url}}"], "path": ["api", "v1", "auth", "signup", "passenger"] }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"User with this email already exists\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Driver Signup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.collectionVariables.set('driverId', jsonData.id);",
+                  "        console.log('Saved driverId: ' + jsonData.id);",
+                  "    }",
+                  "    pm.test('Driver signup successful', function () {",
+                  "        pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ravi Kumar\",\n  \"email\": \"ravi.driver@example.com\",\n  \"password\": \"DriverPass@123\",\n  \"phoneNumber\": \"+919876543211\",\n  \"licenseNumber\": \"DL-1420110012345\",\n  \"aadharCard\": \"1234-5678-9012\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/auth/signup/driver",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "auth", "signup", "driver"]
+            },
+            "description": "Register a new driver.\n\n**Request Body:** `DriverSignupRequestDto`\n- `name` (String)\n- `email` (String) — Must be unique\n- `password` (String)\n- `phoneNumber` (String) — Must be unique\n- `licenseNumber` (String) — Must be unique\n- `aadharCard` (String)\n\nAuto-saves `driverId` on success."
+          },
+          "response": [
+            {
+              "name": "201 — Driver Signup Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Ravi Kumar\",\n  \"email\": \"ravi.driver@example.com\",\n  \"password\": \"DriverPass@123\",\n  \"phoneNumber\": \"+919876543211\",\n  \"licenseNumber\": \"DL-1420110012345\",\n  \"aadharCard\": \"1234-5678-9012\"\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/auth/signup/driver", "host": ["{{gateway_url}}"], "path": ["api", "v1", "auth", "signup", "driver"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Ravi Kumar\",\n  \"email\": \"ravi.driver@example.com\",\n  \"licenseNumber\": \"DL-1420110012345\",\n  \"phoneNumber\": \"+919876543211\",\n  \"aadharCard\": \"1234-5678-9012\",\n  \"createdAt\": \"2026-08-16T11:40:00.000+00:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Driver Sign In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Driver sign in successful — JWT cookie set', function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ravi.driver@example.com\",\n  \"password\": \"DriverPass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/auth/signin/driver",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "auth", "signin", "driver"]
+            },
+            "description": "Authenticate driver with email & password. Sets `jwt` HttpOnly cookie on success."
+          },
+          "response": [
+            {
+              "name": "200 — Driver Signin Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"ravi.driver@example.com\",\n  \"password\": \"DriverPass@123\"\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/auth/signin/driver", "host": ["{{gateway_url}}"], "path": ["api", "v1", "auth", "signin", "driver"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json" },
+                { "key": "Set-Cookie", "value": "jwt=eyJhbGciOiJIUzI1NiJ9...; Path=/; HttpOnly" }
+              ],
+              "body": "{\n  \"success\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "Passenger Sign In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Sign in successful — JWT cookie set', function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/auth/signin/passenger",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "auth", "signin", "passenger"]
+            },
+            "description": "Authenticate a passenger.\n\n**Request Body:** `AuthRequestDto`\n- `email` (String)\n- `password` (String)\n\n**Response:** Sets HTTP-Only `jwt` cookie in the response headers.\n\n**Response Body:** `AuthResponseDto`\n- `success` (Boolean)"
+          },
+          "response": [
+            {
+              "name": "200 — Sign In Success (Cookie Set)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass@123\"\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/auth/signin/passenger", "host": ["{{gateway_url}}"], "path": ["api", "v1", "auth", "signin", "passenger"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json" },
+                { "key": "Set-Cookie", "value": "jwt=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc4Njg3ODQwMH0.signature; Path=/; HttpOnly" }
+              ],
+              "body": "{\n  \"success\": true\n}"
+            },
+            {
+              "name": "401 — Invalid Credentials",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"WrongPassword\"\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/auth/signin/passenger", "host": ["{{gateway_url}}"], "path": ["api", "v1", "auth", "signin", "passenger"] }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Invalid credentials\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🚗 Booking Service",
+      "item": [
+        {
+          "name": "Create Booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.bookingId) {",
+                  "        pm.collectionVariables.set('bookingId', jsonData.bookingId);",
+                  "        console.log('Saved bookingId: ' + jsonData.bookingId);",
+                  "    }",
+                  "    pm.test('Booking created successfully', function () {",
+                  "        pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}", "description": "Optional. Prevents duplicate bookings on retries." }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"passengerId\": {{passengerId}},\n  \"startLocation\": {\n    \"latitude\": 28.6139,\n    \"longitude\": 77.2090\n  },\n  \"endLocation\": {\n    \"latitude\": 28.5355,\n    \"longitude\": 77.3910\n  }\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking"]
+            },
+            "description": "Create a new ride booking.\n\n**Request Body:** `CreateBookingDto`\n- `passengerId` (Long)\n- `startLocation` — `ExactLocation { latitude, longitude }`\n- `endLocation` — `ExactLocation { latitude, longitude }`\n\n**Headers:**\n- `Idempotency-Key` (optional) — Prevents duplicate bookings on retries\n\nAuto-saves `bookingId` on success."
+          },
+          "response": [
+            {
+              "name": "201 — Booking Created (REQUESTED)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Idempotency-Key", "value": "550e8400-e29b-41d4-a716-446655440000" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"passengerId\": 1,\n  \"startLocation\": {\n    \"latitude\": 28.6139,\n    \"longitude\": 77.2090\n  },\n  \"endLocation\": {\n    \"latitude\": 28.5355,\n    \"longitude\": 77.3910\n  }\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/booking", "host": ["{{gateway_url}}"], "path": ["api", "v1", "booking"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"bookingId\": \"1\",\n  \"bookingStatus\": \"REQUESTED\",\n  \"driver\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Booking — Assign Driver",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DRIVER_ASSIGNED\",\n  \"driverId\": {{driverId}}\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking/{{bookingId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking", "{{bookingId}}"]
+            },
+            "description": "Update booking status and optionally assign a driver.\n\n**Path Variable:** `bookingId` (Long)\n\n**Request Body:** `UpdateBookingRequestDto`\n- `status` (String) — One of: `DRIVER_ASSIGNED`, `DRIVER_ACCEPTED`, `DRIVER_ARRIVING`, `RIDE_STARTED`, `IN_RIDE`, `COMPLETED`, `CANCELLED`\n- `driverId` (Long, optional) — Required when status is `DRIVER_ASSIGNED`"
+          },
+          "response": [
+            {
+              "name": "200 — Driver Assigned",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"DRIVER_ASSIGNED\",\n  \"driverId\": 1\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/booking/1", "host": ["{{gateway_url}}"], "path": ["api", "v1", "booking", "1"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"bookingId\": 1,\n  \"status\": \"DRIVER_ASSIGNED\",\n  \"driver\": {\n    \"id\": 1,\n    \"name\": \"Ravi Kumar\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Booking — Driver Arriving",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DRIVER_ARRIVING\",\n  \"driverId\": {{driverId}}\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking/{{bookingId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking", "{{bookingId}}"]
+            },
+            "description": "Transition booking to DRIVER_ARRIVING status."
+          },
+          "response": [
+            {
+              "name": "200 — Driver Arriving",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"DRIVER_ARRIVING\",\n  \"driverId\": 1\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/booking/1", "host": ["{{gateway_url}}"], "path": ["api", "v1", "booking", "1"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"bookingId\": 1,\n  \"status\": \"DRIVER_ARRIVING\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Booking — Ride Started",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"RIDE_STARTED\",\n  \"driverId\": {{driverId}}\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking/{{bookingId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking", "{{bookingId}}"]
+            },
+            "description": "Transition booking to RIDE_STARTED (passenger picked up)."
+          },
+          "response": [
+            {
+              "name": "200 — Ride Started",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"RIDE_STARTED\",\n  \"driverId\": 1\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/booking/1", "host": ["{{gateway_url}}"], "path": ["api", "v1", "booking", "1"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"bookingId\": 1,\n  \"status\": \"RIDE_STARTED\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Booking — In Ride",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_RIDE\",\n  \"driverId\": {{driverId}}\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking/{{bookingId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking", "{{bookingId}}"]
+            },
+            "description": "Transition booking to IN_RIDE."
+          },
+          "response": [
+            {
+              "name": "200 — In Ride",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"IN_RIDE\",\n  \"driverId\": 1\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/booking/1", "host": ["{{gateway_url}}"], "path": ["api", "v1", "booking", "1"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"bookingId\": 1,\n  \"status\": \"IN_RIDE\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Booking — Completed",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\",\n  \"driverId\": {{driverId}}\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking/{{bookingId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking", "{{bookingId}}"]
+            },
+            "description": "Complete the ride."
+          },
+          "response": [
+            {
+              "name": "200 — Ride Completed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"COMPLETED\",\n  \"driverId\": 1\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/booking/1", "host": ["{{gateway_url}}"], "path": ["api", "v1", "booking", "1"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"bookingId\": 1,\n  \"status\": \"COMPLETED\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Booking — Cancelled",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CANCELLED\",\n  \"driverId\": {{driverId}}\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking/{{bookingId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking", "{{bookingId}}"]
+            },
+            "description": "Cancel the booking."
+          },
+          "response": [
+            {
+              "name": "200 — Booking Cancelled",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"CANCELLED\",\n  \"driverId\": 1\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/booking/1", "host": ["{{gateway_url}}"], "path": ["api", "v1", "booking", "1"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"bookingId\": 1,\n  \"status\": \"CANCELLED\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "⭐ Review Service",
+      "item": [
+        {
+          "name": "Create Review",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.collectionVariables.set('reviewId', jsonData.id);",
+                  "        console.log('Saved reviewId: ' + jsonData.id);",
+                  "    }",
+                  "    pm.test('Review created successfully', function () {",
+                  "        pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": {{bookingId}},\n  \"content\": \"Great ride! The driver was very professional and the car was clean.\",\n  \"rating\": 4.5\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/reviews",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "reviews"]
+            },
+            "description": "Publish a review for a completed booking.\n\n**Request Body:** `CreateReviewDto` (validated)\n- `bookingId` (Long) — Must reference a valid booking\n- `content` (String) — Review text\n- `rating` (Double) — 0.0 to 5.0\n\nAuto-saves `reviewId` on success."
+          },
+          "response": [
+            {
+              "name": "201 — Review Published",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"bookingId\": 1,\n  \"content\": \"Great ride! The driver was very professional and the car was clean.\",\n  \"rating\": 4.5\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/reviews", "host": ["{{gateway_url}}"], "path": ["api", "v1", "reviews"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"content\": \"Great ride! The driver was very professional and the car was clean.\",\n  \"rating\": 4.5,\n  \"booking\": 1,\n  \"createdAt\": \"2026-08-16T11:50:00.000+00:00\",\n  \"updatedAt\": \"2026-08-16T11:50:00.000+00:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get All Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/reviews",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "reviews"]
+            },
+            "description": "Get all reviews in the system."
+          },
+          "response": [
+            {
+              "name": "200 — Reviews List",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{gateway_url}}/api/v1/reviews", "host": ["{{gateway_url}}"], "path": ["api", "v1", "reviews"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"id\": 1,\n    \"content\": \"Great ride!\",\n    \"rating\": 4.5,\n    \"booking\": { \"id\": 1 },\n    \"createdAt\": \"2026-08-16T11:50:00.000+00:00\",\n    \"updatedAt\": \"2026-08-16T11:50:00.000+00:00\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get Review By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/reviews/{{reviewId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "reviews", "{{reviewId}}"]
+            },
+            "description": "Get a specific review by its ID."
+          },
+          "response": [
+            {
+              "name": "200 — Review Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{gateway_url}}/api/v1/reviews/1", "host": ["{{gateway_url}}"], "path": ["api", "v1", "reviews", "1"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"content\": \"Great ride! The driver was very professional and the car was clean.\",\n  \"rating\": 4.5,\n  \"booking\": { \"id\": 1 },\n  \"createdAt\": \"2026-08-16T11:50:00.000+00:00\",\n  \"updatedAt\": \"2026-08-16T11:50:00.000+00:00\"\n}"
+            },
+            {
+              "name": "404 — Review Not Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{gateway_url}}/api/v1/reviews/999", "host": ["{{gateway_url}}"], "path": ["api", "v1", "reviews", "999"] }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Review not found with id: 999\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Review",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Updated review — Still a great ride but AC could have been better.\",\n  \"rating\": 4.0\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/reviews/{{reviewId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "reviews", "{{reviewId}}"]
+            },
+            "description": "Update an existing review.\n\n**Path Variable:** `reviewId` (Long)\n\n**Request Body:**\n- `content` (String) — Updated review text\n- `rating` (Double) — Updated rating"
+          },
+          "response": [
+            {
+              "name": "200 — Review Updated",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"content\": \"Updated review — Still a great ride but AC could have been better.\",\n  \"rating\": 4.0\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/reviews/1", "host": ["{{gateway_url}}"], "path": ["api", "v1", "reviews", "1"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"content\": \"Updated review — Still a great ride but AC could have been better.\",\n  \"rating\": 4.0,\n  \"booking\": { \"id\": 1 },\n  \"createdAt\": \"2026-08-16T11:50:00.000+00:00\",\n  \"updatedAt\": \"2026-08-16T11:55:00.000+00:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Review",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/reviews/{{reviewId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "reviews", "{{reviewId}}"]
+            },
+            "description": "Delete a review by ID."
+          },
+          "response": [
+            {
+              "name": "200 — Review Deleted",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": { "raw": "{{gateway_url}}/api/v1/reviews/1", "host": ["{{gateway_url}}"], "path": ["api", "v1", "reviews", "1"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "\"Review deleted successfully\""
+            },
+            {
+              "name": "500 — Deletion Failed",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": { "raw": "{{gateway_url}}/api/v1/reviews/999", "host": ["{{gateway_url}}"], "path": ["api", "v1", "reviews", "999"] }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Failed to delete review\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📍 Location Service",
+      "item": [
+        {
+          "name": "Save Driver Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"{{driverId}}\",\n  \"latitude\": 28.6139,\n  \"longitude\": 77.2090\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/location/setDriverLocation",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "location", "setDriverLocation"]
+            },
+            "description": "Save or update a driver's current GPS location in Redis GEO.\n\n**Request Body:** `SaveDriverLocationRequestDto`\n- `driverId` (String)\n- `latitude` (Double)\n- `longitude` (Double)\n\n**Note:** Base path is `/api/location` (no `/v1`). Gateway route: `/api/location/**`"
+          },
+          "response": [
+            {
+              "name": "201 — Location Saved",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"driverId\": \"1\",\n  \"latitude\": 28.6139,\n  \"longitude\": 77.2090\n}" },
+                "url": { "raw": "{{gateway_url}}/api/location/drivers", "host": ["{{gateway_url}}"], "path": ["api", "location", "drivers"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "true"
+            },
+            {
+              "name": "500 — Save Failed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"driverId\": \"1\",\n  \"latitude\": 28.6139,\n  \"longitude\": 77.2090\n}" },
+                "url": { "raw": "{{gateway_url}}/api/location/drivers", "host": ["{{gateway_url}}"], "path": ["api", "location", "drivers"] }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "false"
+            }
+          ]
+        },
+        {
+          "name": "Get Nearby Drivers",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 28.6139,\n  \"longitude\": 77.2090\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/location/nearby/drivers",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "location", "nearby", "drivers"]
+            },
+            "description": "Find all drivers within a 5km radius of the given coordinates (uses Redis GEORADIUS).\n\n**Request Body:** `NearbyDriversRequestDto`\n- `driverId` (String, optional) — Exclude a specific driver\n- `latitude` (Double)\n- `longitude` (Double)"
+          },
+          "response": [
+            {
+              "name": "200 — Nearby Drivers Found",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"latitude\": 28.6139,\n  \"longitude\": 77.2090\n}" },
+                "url": { "raw": "{{gateway_url}}/api/location/nearby/drivers", "host": ["{{gateway_url}}"], "path": ["api", "location", "nearby", "drivers"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"driverId\": \"1\",\n    \"latitude\": 28.6139,\n    \"longitude\": 77.209\n  },\n  {\n    \"driverId\": \"3\",\n    \"latitude\": 28.62,\n    \"longitude\": 77.215\n  }\n]"
+            },
+            {
+              "name": "200 — No Nearby Drivers",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"latitude\": 0.0,\n  \"longitude\": 0.0\n}" },
+                "url": { "raw": "{{gateway_url}}/api/location/nearby/drivers", "host": ["{{gateway_url}}"], "path": ["api", "location", "nearby", "drivers"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[]"
+            }
+          ]
+        },
+        {
+          "name": "Get Driver Location By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/api/location/driver/{{driverId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "location", "driver", "{{driverId}}"]
+            },
+            "description": "Get a specific driver's saved GPS location from Redis.\n\n**Path Variable:** `driverId` (String)"
+          },
+          "response": [
+            {
+              "name": "200 — Driver Location Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{gateway_url}}/api/location/driver/1", "host": ["{{gateway_url}}"], "path": ["api", "location", "driver", "1"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"driverId\": \"1\",\n  \"latitude\": 28.6139,\n  \"longitude\": 77.209\n}"
+            },
+            {
+              "name": "404 — Driver Location Not Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{gateway_url}}/api/location/driver/999", "host": ["{{gateway_url}}"], "path": ["api", "location", "driver", "999"] }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "null"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔌 Socket Service (REST + WebSocket)",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{socket_url}}/api/socket",
+              "host": ["{{socket_url}}"],
+              "path": ["api", "socket"]
+            },
+            "description": "Basic health/test endpoint. Returns `true` if the service is running."
+          },
+          "response": [
+            {
+              "name": "200 — Service Up",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{socket_url}}/api/socket", "host": ["{{socket_url}}"], "path": ["api", "socket"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "true"
+            }
+          ]
+        },
+        {
+          "name": "Raise New Ride Request (Broadcast to Drivers)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"passengerId\": {{passengerId}},\n  \"startLocation\": {\n    \"latitude\": 28.6139,\n    \"longitude\": 77.2090\n  },\n  \"endLocation\": {\n    \"latitude\": 28.5355,\n    \"longitude\": 77.3910\n  },\n  \"driverIds\": [1, 2, 3],\n  \"bookingId\": {{bookingId}}\n}"
+            },
+            "url": {
+              "raw": "{{socket_url}}/api/socket/newride",
+              "host": ["{{socket_url}}"],
+              "path": ["api", "socket", "newride"]
+            },
+            "description": "Broadcasts a ride request to nearby drivers via WebSocket STOMP (`/topic/rideRequest`).\n\n**Request Body:** `RideRequestDto`\n- `passengerId` (Long)\n- `startLocation` — `ExactLocation { latitude, longitude }`\n- `endLocation` — `ExactLocation { latitude, longitude }`\n- `driverIds` (List<Long>) — Driver IDs to broadcast to\n- `bookingId` (Long)\n\n**Internal:** Sends the request to STOMP topic `/topic/rideRequest`."
+          },
+          "response": [
+            {
+              "name": "200 — Ride Request Broadcasted",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"passengerId\": 1,\n  \"startLocation\": {\n    \"latitude\": 28.6139,\n    \"longitude\": 77.2090\n  },\n  \"endLocation\": {\n    \"latitude\": 28.5355,\n    \"longitude\": 77.3910\n  },\n  \"driverIds\": [1, 2, 3],\n  \"bookingId\": 1\n}" },
+                "url": { "raw": "{{socket_url}}/api/socket/newride", "host": ["{{socket_url}}"], "path": ["api", "socket", "newride"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "true"
+            }
+          ]
+        }
+      ],
+      "description": "WebSocket/STOMP service for real-time ride updates.\n\n## WebSocket Connection\n- **STOMP Endpoint:** `ws://localhost:8086/ws` (SockJS enabled)\n- **App Destination Prefix:** `/app`\n- **Topic Prefix:** `/topic`\n\n## STOMP Destinations\n| Direction | Destination | Payload | Description |\n|-----------|------------|---------|-------------|\n| Subscribe | `/topic/rideRequest` | `RideRequestDto` | Receive new ride requests (for drivers) |\n| Subscribe | `/topic/ping` | `TestResponse` | Ping/pong test |\n| Send | `/app/rideResponse/{userId}` | `RideResponseDto { response: Boolean, bookingId: Long }` | Driver accepts/rejects ride |\n| Send | `/app/ping` | `TestRequest { data: String }` | Ping test |"
+    },
+    {
+      "name": "🌐 API Gateway",
+      "item": [
+        {
+          "name": "Gateway Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/actuator/health",
+              "host": ["{{gateway_url}}"],
+              "path": ["actuator", "health"]
+            },
+            "description": "Check the health of the API Gateway."
+          },
+          "response": [
+            {
+              "name": "200 — Healthy",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{gateway_url}}/actuator/health", "host": ["{{gateway_url}}"], "path": ["actuator", "health"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"UP\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Gateway Routes List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/actuator/gateway/routes",
+              "host": ["{{gateway_url}}"],
+              "path": ["actuator", "gateway", "routes"]
+            },
+            "description": "List all routes configured in the API Gateway."
+          },
+          "response": [
+            {
+              "name": "200 — Routes",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{gateway_url}}/actuator/gateway/routes", "host": ["{{gateway_url}}"], "path": ["actuator", "gateway", "routes"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"route_id\": \"auth-service\",\n    \"uri\": \"lb://UberAuthService\",\n    \"predicates\": [\"Path: /api/v1/auth/**\"]\n  },\n  {\n    \"route_id\": \"booking-service\",\n    \"uri\": \"lb://UberBookingService\",\n    \"predicates\": [\"Path: /api/v1/bookings/**, /api/v1/booking/**\"]\n  },\n  {\n    \"route_id\": \"location-service\",\n    \"uri\": \"lb://UberProject-LocationService\",\n    \"predicates\": [\"Path: /api/v1/location/**, /api/location/**\"]\n  },\n  {\n    \"route_id\": \"review-service\",\n    \"uri\": \"lb://UberReviewService\",\n    \"predicates\": [\"Path: /api/v1/reviews/**, /api/v1/review/**\"]\n  },\n  {\n    \"route_id\": \"socket-service\",\n    \"uri\": \"lb://ClientSocketService\",\n    \"predicates\": [\"Path: /ws/**\"]\n  }\n]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔄 Full Ride Flow (Run in Order)",
+      "item": [
+        {
+          "name": "Step 1 — Signup Passenger",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) pm.collectionVariables.set('passengerId', jsonData.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Passenger\",\n  \"email\": \"test.passenger@example.com\",\n  \"password\": \"Test@123\",\n  \"phoneNumber\": \"+919999999001\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/auth/signup/passenger",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "auth", "signup", "passenger"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 2 — Signin Passenger",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test.passenger@example.com\",\n  \"password\": \"Test@123\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/auth/signin/passenger",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "auth", "signin", "passenger"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 3 — Save Driver Location (simulate nearby driver)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"{{driverId}}\",\n  \"latitude\": 28.6139,\n  \"longitude\": 77.2090\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/location/drivers",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "location", "drivers"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 4 — Create Booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.bookingId) pm.collectionVariables.set('bookingId', jsonData.bookingId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"passengerId\": {{passengerId}},\n  \"startLocation\": {\n    \"latitude\": 28.6139,\n    \"longitude\": 77.2090\n  },\n  \"endLocation\": {\n    \"latitude\": 28.5355,\n    \"longitude\": 77.3910\n  }\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 5 — Assign Driver",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DRIVER_ASSIGNED\",\n  \"driverId\": {{driverId}}\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking/{{bookingId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking", "{{bookingId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 6 — Start Ride",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_RIDE\",\n  \"driverId\": {{driverId}}\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking/{{bookingId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking", "{{bookingId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 7 — Complete Ride",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\",\n  \"driverId\": {{driverId}}\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/booking/{{bookingId}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "booking", "{{bookingId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 8 — Leave Review",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) pm.collectionVariables.set('reviewId', jsonData.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": {{bookingId}},\n  \"content\": \"Excellent ride! Very smooth and comfortable journey.\",\n  \"rating\": 5.0\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/v1/reviews",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "v1", "reviews"]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Run these requests in order to simulate a complete ride lifecycle:\n1. Register a passenger\n2. Sign in the passenger (gets JWT cookie)\n3. Save a driver's location (simulate a nearby driver)\n4. Create a booking (passenger requests a ride)\n5. Assign a driver to the booking\n6. Start the ride\n7. Complete the ride\n8. Leave a review\n\n**Note:** Test scripts auto-save `passengerId`, `bookingId`, and `reviewId` between steps."
+    }
+  ]
+}

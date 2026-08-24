@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Driver Panel</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 500px; margin: 30px auto; padding: 0 15px; }
+    h2 { margin-bottom: 15px; }
+    input { padding: 6px; width: 60px; border: 1px solid #ccc; border-radius: 3px; }
+    button { padding: 8px 16px; border: none; border-radius: 3px; cursor: pointer; color: #fff; margin-left: 5px; }
+    .btn-connect { background: #007bff; }
+    .btn-accept { background: #28a745; margin-right: 5px; }
+    .btn-decline { background: #dc3545; }
+    #status { margin: 10px 0; padding: 6px; font-size: 13px; color: #666; }
+    .connected { color: green; font-weight: bold; }
+    .ride-card { border: 1px solid #ddd; padding: 10px; margin: 8px 0; border-radius: 4px; }
+    #log { margin-top: 15px; font-size: 11px; color: #888; max-height: 150px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 8px; }
+  </style>
+</head>
+<body>
+  <h2>🚗 Driver Panel</h2>
+  <div>
+    Driver ID: <input type="text" id="driverId" value="12">
+    <button class="btn-connect" onclick="connect()">Connect</button>
+  </div>
+  <div id="status">Disconnected</div>
+  <div id="rides"></div>
+  <div id="log"></div>
+
+  <script>
+    let stompClient = null;
+
+    function connect() {
+      const driverId = document.getElementById('driverId').value;
+      const socket = new SockJS('http://localhost:8086/ws');
+      stompClient = Stomp.over(socket);
+      stompClient.debug = null;
+
+      stompClient.connect({}, function() {
+        document.getElementById('status').className = 'connected';
+        document.getElementById('status').textContent = '● Connected (Driver #' + driverId + ')';
+        log('Connected');
+
+        stompClient.subscribe('/topic/rideRequest', function(msg) {
+          const ride = JSON.parse(msg.body);
+          if (ride.bookingId) showRide(ride);
+        });
+
+        // Register location in Redis
+        fetch('http://localhost:8080/api/v1/location/drivers', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ driverId: parseInt(driverId), latitude: 28.6139, longitude: 77.2090 })
+        }).catch(() => {});
+      }, function() {
+        document.getElementById('status').textContent = 'Connection failed';
+      });
+    }
+
+    function showRide(ride) {
+      const lat = ride.startLocation?.latitude || '?';
+      const lng = ride.startLocation?.longitude || '?';
+      const div = document.createElement('div');
+      div.id = 'ride-' + ride.bookingId;
+      div.className = 'ride-card';
+      div.innerHTML = `
+        <strong>Booking #${ride.bookingId}</strong> &mdash; Pickup: (${lat}, ${lng})<br><br>
+        <button class="btn-accept" onclick="respond(${ride.bookingId}, true)">ACCEPT</button>
+        <button class="btn-decline" onclick="respond(${ride.bookingId}, false)">DECLINE</button>
+      `;
+      document.getElementById('rides').prepend(div);
+      playBeep();
+    }
+
+    function respond(bookingId, accept) {
+      const driverId = document.getElementById('driverId').value;
+      stompClient.send("/app/rideResponse/" + driverId, {}, JSON.stringify({ bookingId, response: accept }));
+      const el = document.getElementById('ride-' + bookingId);
+      if (el) el.innerHTML = `<strong>Booking #${bookingId}</strong> — ${accept ? '✅ ACCEPTED' : '❌ DECLINED'}`;
+      log((accept ? 'Accepted' : 'Declined') + ' Booking #' + bookingId);
+    }
+
+    function playBeep() {
+      try { const c = new AudioContext(), o = c.createOscillator(); o.connect(c.destination); o.frequency.value = 800; o.start(); setTimeout(() => o.stop(), 200); } catch(e) {}
+    }
+
+    function log(msg) {
+      document.getElementById('log').innerHTML += '[' + new Date().toLocaleTimeString() + '] ' + msg + '<br>';
+    }
+
+    window.onload = connect;
+  </script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Passenger Panel</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 500px; margin: 30px auto; padding: 0 15px; }
+    h2 { margin-bottom: 15px; }
+    input { padding: 6px; width: 60px; border: 1px solid #ccc; border-radius: 3px; }
+    button { padding: 8px 16px; border: none; border-radius: 3px; cursor: pointer; color: #fff; background: #007bff; margin-left: 5px; }
+    #status { margin: 10px 0; padding: 6px; font-size: 13px; color: #666; }
+    .connected { color: green; font-weight: bold; }
+    .notif { padding: 10px; margin: 8px 0; border-radius: 4px; border-left: 4px solid #ccc; background: #f9f9f9; }
+    .notif.accepted { border-left-color: #28a745; }
+    .notif.declined { border-left-color: #dc3545; }
+    .notif.requested { border-left-color: #ffc107; }
+    #log { margin-top: 15px; font-size: 11px; color: #888; max-height: 150px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 8px; }
+  </style>
+</head>
+<body>
+  <h2>🚕 Passenger Panel</h2>
+  <div>
+    Passenger ID: <input type="text" id="passengerId" value="1">
+    <button onclick="connect()">Connect</button>
+  </div>
+  <div id="status">Disconnected</div>
+  <div id="notifications"></div>
+  <div id="log"></div>
+
+  <script>
+    let stompClient = null;
+
+    function connect() {
+      const pid = document.getElementById('passengerId').value;
+      const socket = new SockJS('http://localhost:8086/ws');
+      stompClient = Stomp.over(socket);
+      stompClient.debug = null;
+
+      stompClient.connect({}, function() {
+        document.getElementById('status').className = 'connected';
+        document.getElementById('status').textContent = '● Connected (Passenger #' + pid + ')';
+        log('Connected');
+
+        // Kafka domain events forwarded by KafkaConsumerService
+        stompClient.subscribe('/topic/passengerNotification', function(msg) {
+          handleEvent(msg.body);
+        });
+
+        // Direct STOMP from DriverRequestController
+        stompClient.subscribe('/topic/rideResponse', function(msg) {
+          handleResponse(msg.body);
+        });
+      }, function() {
+        document.getElementById('status').textContent = 'Connection failed';
+      });
+    }
+
+    function handleEvent(body) {
+      try {
+        const data = JSON.parse(body);
+        if (data.eventType) {
+          const p = data.payload || {};
+          const status = p.status || '';
+          const bookingId = p.bookingId || data.rideId;
+          const driver = (p.driver && p.driver.name) ? p.driver.name : '—';
+          let cls = 'requested';
+          if (status.includes('ASSIGNED') || status.includes('ACCEPTED')) cls = 'accepted';
+          else if (status.includes('CANCELLED')) cls = 'declined';
+          addNotif(cls, `Booking #${bookingId} → <strong>${status}</strong> (Driver: ${driver})`);
+        } else if (data.message) {
+          const cls = data.response ? 'accepted' : 'declined';
+          addNotif(cls, `Booking #${data.bookingId} → ${data.message}`);
+        }
+      } catch(e) {}
+    }
+
+    function handleResponse(body) {
+      try {
+        const d = JSON.parse(body);
+        const cls = d.response ? 'accepted' : 'declined';
+        addNotif(cls, `Booking #${d.bookingId} → Driver ${d.response ? 'ACCEPTED ✅' : 'DECLINED ❌'}`);
+      } catch(e) {}
+    }
+
+    function addNotif(cls, html) {
+      const div = document.createElement('div');
+      div.className = 'notif ' + cls;
+      div.innerHTML = html + ` <small style="color:#999">${new Date().toLocaleTimeString()}</small>`;
+      document.getElementById('notifications').prepend(div);
+      playBeep();
+    }
+
+    function playBeep() {
+      try { const c = new AudioContext(), o = c.createOscillator(); o.connect(c.destination); o.frequency.value = 600; o.start(); setTimeout(() => o.stop(), 150); } catch(e) {}
+    }
+
+    function log(msg) {
+      document.getElementById('log').innerHTML += '[' + new Date().toLocaleTimeString() + '] ' + msg + '<br>';
+    }
+
+    window.onload = connect;
+  </script>
+</body>
+</html>

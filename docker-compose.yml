@@ -1,0 +1,174 @@
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: uber-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: uber_db_local
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: uber-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: uber-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: uber-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  eureka-server:
+    build:
+      context: .
+      dockerfile: ./UberServiceDiscovery/Dockerfile
+    container_name: uber-service-discovery
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8761/"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./UberApiGateway/Dockerfile
+    container_name: uber-api-gateway
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./UberProject-AuthService/Dockerfile
+    container_name: uber-auth-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "7474:7474"
+    environment:
+      - DB_URL=jdbc:mysql://mysql:3306/uber_db_local
+      - DB_USERNAME=root
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+      - JWT_SECRET=${JWT_SECRET:-default_uber_jwt_secret_key_change_in_production_min_256_bits_12345}
+
+  booking-service:
+    build:
+      context: .
+      dockerfile: ./UberBookingService/Dockerfile
+    container_name: uber-booking-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "7777:7777"
+    environment:
+      - DB_URL=jdbc:mysql://mysql:3306/uber_db_local
+      - DB_USERNAME=root
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+
+  location-service:
+    build:
+      context: .
+      dockerfile: ./UberProject-LocationService/Dockerfile
+    container_name: uber-location-service
+    depends_on:
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "7478:7478"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+
+  review-service:
+    build:
+      context: .
+      dockerfile: ./UberReviewService/Dockerfile
+    container_name: uber-review-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "7475:7475"
+    environment:
+      - DB_URL=jdbc:mysql://mysql:3306/uber_db_local
+      - DB_USERNAME=root
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+
+  socket-service:
+    build:
+      context: .
+      dockerfile: ./ClientSocketService/Dockerfile
+    container_name: uber-socket-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
+    environment:
+      - DB_URL=jdbc:mysql://mysql:3306/uber_db_local
+      - DB_USERNAME=root
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+      - BOOKING_SERVICE_URL=http://booking-service:7777
+
+volumes:
+  mysql_data:

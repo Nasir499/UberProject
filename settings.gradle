@@ -1,0 +1,13 @@
+rootProject.name = 'UberBackend'
+
+includeBuild('Uber-entityService')
+includeBuild('UberServiceDiscovery')
+includeBuild('UberApiGateway')
+includeBuild('UberProject-AuthService')
+includeBuild('UberBookingService')
+includeBuild('UberProject-LocationService')
+includeBuild('UberReviewService')
+includeBuild('ClientSocketService')
+
+
+

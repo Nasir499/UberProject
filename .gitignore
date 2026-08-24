@@ -1,0 +1,25 @@
+# Environment variables & secrets
+.env
+*.env
+*.pem
+*.key
+*.p12
+
+# IDE & Editor files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Gradle & Build output
+.gradle/
+**/build/
+**/out/
+**/bin/
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
