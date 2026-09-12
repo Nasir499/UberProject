@@ -93,8 +93,16 @@ public class ReviewController {
     public ResponseEntity<?> updateReview(@PathVariable Long reviewId, @RequestBody Review request){
         try {
             Review review = this.reviewService.updateReview(reviewId, request);
-            return new ResponseEntity<>(review, HttpStatus.OK);
-        }catch (Exception e){
+            ReviewDto response = ReviewDto.builder()
+                    .id(review.getId())
+                    .content(review.getContent())
+                    .booking(review.getBooking() != null ? review.getBooking().getId() : null)
+                    .rating(review.getRating())
+                    .createdAt(review.getCreatedAt())
+                    .updatedAt(review.getUpdatedAt())
+                    .build();
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e){
             return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }

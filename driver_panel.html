@@ -34,7 +34,7 @@
 
     function connect() {
       const driverId = document.getElementById('driverId').value;
-      const socket = new SockJS('http://localhost:8086/ws');
+      const socket = new SockJS('http://localhost:8080/ws');
       stompClient = Stomp.over(socket);
       stompClient.debug = null;
 

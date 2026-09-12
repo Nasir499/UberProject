@@ -1,4 +1,4 @@
-package com.example.uberbookingservice.controllers;
+package com.example.uberbookingservice.configuration;
 
 import com.example.uberbookingservice.apis.LocationServiceApi;
 import com.example.uberbookingservice.apis.UberSocketApi;

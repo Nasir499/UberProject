@@ -27,10 +27,10 @@ public class DriverRequestController {
     @Value("${booking.service.url:http://localhost:7777}")
     private String bookingServiceUrl;
 
-    public DriverRequestController(SimpMessagingTemplate simpMessagingTemplate, KafkaProducerService kafkaProducerService1) {
+    public DriverRequestController(SimpMessagingTemplate simpMessagingTemplate, KafkaProducerService kafkaProducerService1, RestTemplate restTemplate) {
         this.simpMessagingTemplate = simpMessagingTemplate;
         this.kafkaProducerService = kafkaProducerService1;
-        this.restTemplate = new RestTemplate();
+        this.restTemplate = restTemplate;
     }
 
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DriverRequestController.class);
@@ -48,7 +48,7 @@ public class DriverRequestController {
     }
 
     @MessageMapping("/rideResponse/{userId}")
-    public synchronized void rideResponseHandler(@DestinationVariable String userId, RideResponseDto responseDto) {
+    public void rideResponseHandler(@DestinationVariable String userId, RideResponseDto responseDto) {
         logger.info("Received response from driver: {} for user: {} bookingId: {}", responseDto.getResponse(), userId, responseDto.getBookingId());
 
         boolean isAccept = Boolean.TRUE.equals(responseDto.getResponse());
@@ -59,7 +59,11 @@ public class DriverRequestController {
                 UpdateBookingRequestDto.builder().status(targetStatus).build();
 
         // 1. Internally update BookingService database details
-        updateBookingServiceDetails(responseDto.getBookingId(), requestDto);
+        boolean updateSuccess = updateBookingServiceDetails(responseDto.getBookingId(), requestDto);
+        if (!updateSuccess) {
+            logger.error("Failed to update BookingService for Booking ID: {}. Aborting passenger notification.", responseDto.getBookingId());
+            return;
+        }
 
         // 2. Notify STOMP topic /topic/rideResponse
         try {
@@ -68,7 +72,7 @@ public class DriverRequestController {
             logger.error("Failed to send rideResponse to STOMP topic", e);
         }
 
-        // 3. Notify Passenger on /topic/passengerNotification
+        // 3. Notify Passenger on broadcast /topic/passengerNotification and specific /topic/passengerNotification/{bookingId}
         try {
             java.util.Map<String, Object> passengerNotification = java.util.Map.of(
                     "bookingId", responseDto.getBookingId(),
@@ -78,7 +82,8 @@ public class DriverRequestController {
                     "message", isAccept ? "Driver #" + userId + " accepted your ride request!" : "Driver declined your ride request."
             );
             simpMessagingTemplate.convertAndSend("/topic/passengerNotification", passengerNotification);
-            logger.info("Passenger notified on /topic/passengerNotification for Booking ID: {}, Status: {}", responseDto.getBookingId(), targetStatus);
+            simpMessagingTemplate.convertAndSend("/topic/passengerNotification/" + responseDto.getBookingId(), passengerNotification);
+            logger.info("Passenger notified on /topic/passengerNotification & /topic/passengerNotification/{} for Booking ID: {}, Status: {}", responseDto.getBookingId(), responseDto.getBookingId(), targetStatus);
         } catch (Exception e) {
             logger.error("Failed to notify passenger topic", e);
         }
@@ -90,26 +95,41 @@ public class DriverRequestController {
         }
     }
 
-    private void updateBookingServiceDetails(Long bookingId, UpdateBookingRequestDto requestDto) {
+    private boolean updateBookingServiceDetails(Long bookingId, UpdateBookingRequestDto requestDto) {
         String[] possibleUrls = {
                 bookingServiceUrl + "/api/v1/booking/" + bookingId,
+                "http://UBERBOOKINGSERVICE/api/v1/booking/" + bookingId,
                 "http://booking-service:7777/api/v1/booking/" + bookingId,
                 "http://localhost:7777/api/v1/booking/" + bookingId
         };
 
+        org.springframework.http.HttpEntity<UpdateBookingRequestDto> requestEntity = new org.springframework.http.HttpEntity<>(requestDto);
+
         for (String url : possibleUrls) {
             try {
-                ResponseEntity<UpdateBookingResponseDto> result = this.restTemplate.postForEntity(
+                ResponseEntity<UpdateBookingResponseDto> result = this.restTemplate.exchange(
                         url,
-                        requestDto,
+                        org.springframework.http.HttpMethod.PATCH,
+                        requestEntity,
                         UpdateBookingResponseDto.class
                 );
-                logger.info("Booking {} internally updated via BookingService ({}): status={}", bookingId, url, result.getStatusCode());
-                return;
-            } catch (Exception e) {
-                logger.warn("Attempt to update BookingService at {} failed: {}", url, e.getMessage());
+                logger.info("Booking {} internally updated via BookingService ({}) PATCH: status={}", bookingId, url, result.getStatusCode());
+                return true;
+            } catch (Exception patchErr) {
+                try {
+                    ResponseEntity<UpdateBookingResponseDto> result = this.restTemplate.postForEntity(
+                            url,
+                            requestDto,
+                            UpdateBookingResponseDto.class
+                    );
+                    logger.info("Booking {} internally updated via BookingService ({}) POST: status={}", bookingId, url, result.getStatusCode());
+                    return true;
+                } catch (Exception postErr) {
+                    logger.warn("Attempt to update BookingService at {} failed: {}", url, postErr.getMessage());
+                }
             }
         }
+        return false;
     }
 
     @GetMapping

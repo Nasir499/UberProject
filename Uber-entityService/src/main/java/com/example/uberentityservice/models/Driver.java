@@ -1,6 +1,8 @@
 package com.example.uberentityservice.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -17,6 +19,10 @@ import java.util.List;
 @Getter
 @Setter
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler" , "bookings", "car"})
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Table(name = "driver", indexes = {
+        @Index(name = "idx_driver_availability", columnList = "isAvailable, driverState")
+})
 public class Driver extends BaseModel{
 
     private String name;
@@ -28,6 +34,7 @@ public class Driver extends BaseModel{
 
     private String email;
 
+    @JsonIgnore
     private String password;
 
     private String aadharCard;

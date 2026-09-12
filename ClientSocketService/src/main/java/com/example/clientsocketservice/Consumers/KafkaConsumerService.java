@@ -21,7 +21,7 @@ public class KafkaConsumerService {
     }
 
     @KafkaListener(
-        topics = {"ride.requested.v1", "ride.driver_assigned.v1", "ride.cancelled.v1", "ride.completed.v1", "sample-topic"}, 
+        topics = {"ride.requested.v1", "ride.driver_assigned.v1", "ride.driver_accepted.v1", "ride.driver_arriving.v1", "ride.ride_started.v1", "ride.in_ride.v1", "ride.completed.v1", "ride.cancelled.v1", "sample-topic"}, 
         autoStartup = "${spring.kafka.listener.auto-startup:true}"
     )
     public void listen(String message) {

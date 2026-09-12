@@ -1,0 +1,6 @@
+.git
+.idea
+**/.idea
+*.zip
+*.tar.gz
+node_modules

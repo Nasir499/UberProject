@@ -25,11 +25,12 @@ public class KafkaEventProducerService {
             String jsonPayload = objectMapper.writeValueAsString(event);
             String key = event.getRideId() != null ? event.getRideId().toString() : event.getEventId();
             logger.info("Publishing domain event to topic {}: {}", topic, event.getEventType());
-            java.util.concurrent.CompletableFuture.runAsync(() -> {
-                try {
-                    kafkaTemplate.send(topic, key, jsonPayload);
-                } catch (Exception e) {
-                    logger.error("Async Kafka send failed: {}", e.getMessage());
+            kafkaTemplate.send(topic, key, jsonPayload).whenComplete((result, ex) -> {
+                if (ex != null) {
+                    logger.error("Failed to deliver Kafka message to topic {}: {}", topic, ex.getMessage(), ex);
+                } else if (result != null && result.getRecordMetadata() != null) {
+                    logger.info("Kafka message delivered to topic {} [partition {}, offset {}]",
+                            topic, result.getRecordMetadata().partition(), result.getRecordMetadata().offset());
                 }
             });
         } catch (Exception e) {

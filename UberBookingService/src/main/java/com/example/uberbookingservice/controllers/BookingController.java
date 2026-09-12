@@ -5,6 +5,7 @@ import com.example.uberbookingservice.dto.CreateBookingResponseDto;
 import com.example.uberbookingservice.dto.UpdateBookingResponseDto;
 import com.example.uberbookingservice.dto.UpdateBookingRequestDto;
 import com.example.uberbookingservice.services.BookingService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,13 +20,13 @@ public class BookingController {
 
     @PostMapping
     public ResponseEntity<CreateBookingResponseDto> createBooking(
-            @RequestBody CreateBookingDto createBookingDto,
+            @Valid @RequestBody CreateBookingDto createBookingDto,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         return new ResponseEntity<>(bookingService.createBooking(createBookingDto, idempotencyKey), HttpStatus.CREATED);
     }
 
-    @PostMapping("/{bookingId}")
-    public ResponseEntity<UpdateBookingResponseDto> updateBooking(@RequestBody UpdateBookingRequestDto updateBookingDto, @PathVariable Long bookingId) {
+    @RequestMapping(value = "/{bookingId}", method = {RequestMethod.PATCH, RequestMethod.POST})
+    public ResponseEntity<UpdateBookingResponseDto> updateBooking(@Valid @RequestBody UpdateBookingRequestDto updateBookingDto, @PathVariable Long bookingId) {
         return new ResponseEntity<>(bookingService.updateBooking(updateBookingDto, bookingId), HttpStatus.OK);
     }
 }

@@ -76,6 +76,11 @@ services:
       - "8080:8080"
     environment:
       - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+      - AUTH_SERVICE_URL=http://auth-service:7474
+      - BOOKING_SERVICE_URL=http://booking-service:7777
+      - LOCATION_SERVICE_URL=http://location-service:7478
+      - REVIEW_SERVICE_URL=http://review-service:7475
+      - SOCKET_SERVICE_URL=http://socket-service:8086
 
   auth-service:
     build:
@@ -87,8 +92,6 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    ports:
-      - "7474:7474"
     environment:
       - DB_URL=jdbc:mysql://mysql:3306/uber_db_local
       - DB_USERNAME=root
@@ -106,8 +109,6 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    ports:
-      - "7777:7777"
     environment:
       - DB_URL=jdbc:mysql://mysql:3306/uber_db_local
       - DB_USERNAME=root
@@ -125,8 +126,6 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    ports:
-      - "7478:7478"
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -142,8 +141,6 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    ports:
-      - "7475:7475"
     environment:
       - DB_URL=jdbc:mysql://mysql:3306/uber_db_local
       - DB_USERNAME=root
@@ -160,8 +157,6 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    ports:
-      - "8086:8086"
     environment:
       - DB_URL=jdbc:mysql://mysql:3306/uber_db_local
       - DB_USERNAME=root

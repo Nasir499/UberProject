@@ -15,4 +15,6 @@ public interface DriverRepository extends JpaRepository<Driver, Long> {
     @Transactional
     @Query("UPDATE Driver d SET d.driverState = com.example.uberentityservice.models.DriverState.RESERVED, d.isAvailable = false WHERE d.id = :driverId AND (d.isAvailable = true OR d.isAvailable IS NULL) AND (d.driverState = com.example.uberentityservice.models.DriverState.AVAILABLE OR d.driverState IS NULL)")
     int reserveDriverIfAvailable(@Param("driverId") Long driverId);
+
+    java.util.List<Driver> findTop10ByIsAvailableTrue();
 }

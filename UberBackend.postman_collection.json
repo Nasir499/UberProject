@@ -2,7 +2,7 @@
   "info": {
     "name": "Uber Backend - Full API Collection",
     "_postman_id": "uber-backend-collection-2026",
-    "description": "Complete API collection for Uber Backend microservices project.\n\n## Services\n- **Auth Service** (port 7474) — Passenger authentication\n- **Booking Service** (port 7777) — Ride bookings\n- **Review Service** (port 7475) — Booking reviews (full CRUD)\n- **Location Service** (port 7478) — Driver location tracking (Redis GEO)\n- **Socket Service** (port 8086) — WebSocket/STOMP for real-time ride requests\n\n## Gateway\nAll APIs are accessible via the API Gateway at `http://localhost:8080`.\n\n## WebSocket\n- STOMP endpoint: `ws://localhost:8086/ws`\n- App destination prefix: `/app`\n- Topic prefix: `/topic`",
+    "description": "Complete API collection for Uber Backend microservices project.\n\n## Gateway\nAll APIs and WebSockets are accessible via the API Gateway at `http://localhost:8080`.\n\n## Services (Routed via Gateway)\n- **Auth Service** — `/api/v1/auth/**`\n- **Booking Service** — `/api/v1/booking/**`\n- **Review Service** — `/api/v1/reviews/**`\n- **Location Service** — `/api/location/**`\n- **Socket Service** — `/api/socket/**` & `/ws/**` (WebSocket/STOMP)\n\n## WebSocket\n- STOMP endpoint: `ws://localhost:8080/ws`\n- App destination prefix: `/app`\n- Topic prefix: `/topic`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,27 +13,27 @@
     },
     {
       "key": "auth_url",
-      "value": "http://localhost:7474",
+      "value": "http://localhost:8080",
       "type": "string"
     },
     {
       "key": "booking_url",
-      "value": "http://localhost:7777",
+      "value": "http://localhost:8080",
       "type": "string"
     },
     {
       "key": "review_url",
-      "value": "http://localhost:7475",
+      "value": "http://localhost:8080",
       "type": "string"
     },
     {
       "key": "location_url",
-      "value": "http://localhost:7478",
+      "value": "http://localhost:8080",
       "type": "string"
     },
     {
       "key": "socket_url",
-      "value": "http://localhost:8086",
+      "value": "http://localhost:8080",
       "type": "string"
     },
     {
@@ -419,13 +419,29 @@
               "_postman_previewlanguage": "json",
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"bookingId\": \"1\",\n  \"bookingStatus\": \"REQUESTED\",\n  \"driver\": null\n}"
+            },
+            {
+              "name": "401 — Missing Authentication Token",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"passengerId\": 1,\n  \"startLocation\": {\n    \"latitude\": 28.6139,\n    \"longitude\": 77.2090\n  },\n  \"endLocation\": {\n    \"latitude\": 28.5355,\n    \"longitude\": 77.3910\n  }\n}" },
+                "url": { "raw": "{{gateway_url}}/api/v1/booking", "host": ["{{gateway_url}}"], "path": ["api", "v1", "booking"] }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Missing authentication token\",\n  \"status\": 401\n}"
             }
           ]
         },
         {
-          "name": "Update Booking — Assign Driver",
+          "name": "Update Booking — Assign Driver (PATCH)",
           "request": {
-            "method": "POST",
+            "method": "PATCH",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
@@ -458,9 +474,9 @@
           ]
         },
         {
-          "name": "Update Booking — Driver Arriving",
+          "name": "Update Booking — Driver Arriving (PATCH)",
           "request": {
-            "method": "POST",
+            "method": "PATCH",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
@@ -493,9 +509,9 @@
           ]
         },
         {
-          "name": "Update Booking — Ride Started",
+          "name": "Update Booking — Ride Started (PATCH)",
           "request": {
-            "method": "POST",
+            "method": "PATCH",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
@@ -528,9 +544,9 @@
           ]
         },
         {
-          "name": "Update Booking — In Ride",
+          "name": "Update Booking — In Ride (PATCH)",
           "request": {
-            "method": "POST",
+            "method": "PATCH",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
@@ -563,9 +579,9 @@
           ]
         },
         {
-          "name": "Update Booking — Completed",
+          "name": "Update Booking — Completed (PATCH)",
           "request": {
-            "method": "POST",
+            "method": "PATCH",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
@@ -584,7 +600,7 @@
             {
               "name": "200 — Ride Completed",
               "originalRequest": {
-                "method": "POST",
+                "method": "PATCH",
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": { "mode": "raw", "raw": "{\n  \"status\": \"COMPLETED\",\n  \"driverId\": 1\n}" },
                 "url": { "raw": "{{gateway_url}}/api/v1/booking/1", "host": ["{{gateway_url}}"], "path": ["api", "v1", "booking", "1"] }
@@ -598,9 +614,9 @@
           ]
         },
         {
-          "name": "Update Booking — Cancelled",
+          "name": "Update Booking — Cancelled (PATCH)",
           "request": {
-            "method": "POST",
+            "method": "PATCH",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
@@ -1050,7 +1066,7 @@
           ]
         }
       ],
-      "description": "WebSocket/STOMP service for real-time ride updates.\n\n## WebSocket Connection\n- **STOMP Endpoint:** `ws://localhost:8086/ws` (SockJS enabled)\n- **App Destination Prefix:** `/app`\n- **Topic Prefix:** `/topic`\n\n## STOMP Destinations\n| Direction | Destination | Payload | Description |\n|-----------|------------|---------|-------------|\n| Subscribe | `/topic/rideRequest` | `RideRequestDto` | Receive new ride requests (for drivers) |\n| Subscribe | `/topic/ping` | `TestResponse` | Ping/pong test |\n| Send | `/app/rideResponse/{userId}` | `RideResponseDto { response: Boolean, bookingId: Long }` | Driver accepts/rejects ride |\n| Send | `/app/ping` | `TestRequest { data: String }` | Ping test |"
+      "description": "WebSocket/STOMP service for real-time ride updates.\n\n## WebSocket Connection\n- **STOMP Endpoint:** `ws://localhost:8080/ws` (SockJS enabled)\n- **App Destination Prefix:** `/app`\n- **Topic Prefix:** `/topic`\n\n## STOMP Destinations\n| Direction | Destination | Payload | Description |\n|-----------|------------|---------|-------------|\n| Subscribe | `/topic/rideRequest` | `RideRequestDto` | Receive new ride requests (for drivers) |\n| Subscribe | `/topic/ping` | `TestResponse` | Ping/pong test |\n| Send | `/app/rideResponse/{userId}` | `RideResponseDto { response: Boolean, bookingId: Long }` | Driver accepts/rejects ride |\n| Send | `/app/ping` | `TestRequest { data: String }` | Ping test |"
     },
     {
       "name": "🌐 API Gateway",

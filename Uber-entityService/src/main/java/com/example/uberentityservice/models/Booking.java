@@ -11,8 +11,10 @@ import java.util.Date;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(indexes = {
-        @Index(columnList = "driver_id"),
+@Table(name = "booking", indexes = {
+        @Index(name = "idx_booking_driver_id", columnList = "driver_id"),
+        @Index(name = "idx_booking_passenger_id", columnList = "passenger_id"),
+        @Index(name = "idx_booking_status", columnList = "bookingStatus")
 })
 public class Booking extends BaseModel{
 

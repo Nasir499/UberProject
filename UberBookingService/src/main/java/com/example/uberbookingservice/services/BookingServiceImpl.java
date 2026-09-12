@@ -13,6 +13,9 @@ import com.example.uberentityservice.models.Passenger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Arrays;
 import java.util.List;
@@ -57,6 +60,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
+    @Transactional
     public CreateBookingResponseDto createBooking(CreateBookingDto bookingDetails, String idempotencyKey) {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             Optional<CreateBookingResponseDto> cached = idempotencyService.getExistingResponse(idempotencyKey);
@@ -90,7 +94,17 @@ public class BookingServiceImpl implements BookingService {
                 .rideId(newBooking.getId())
                 .payload(responseDto)
                 .build();
-        kafkaEventProducerService.sendDomainEvent("ride.requested.v1", event);
+
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaEventProducerService.sendDomainEvent("ride.requested.v1", event);
+                }
+            });
+        } else {
+            kafkaEventProducerService.sendDomainEvent("ride.requested.v1", event);
+        }
 
         Double lat = (bookingDetails.getStartLocation() != null && bookingDetails.getStartLocation().getLatitude() != null)
                 ? bookingDetails.getStartLocation().getLatitude() : 28.6139;
@@ -122,6 +136,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
+    @Transactional
     public UpdateBookingResponseDto updateBooking(UpdateBookingRequestDto bookingRequestDto, Long bookingId) {
         Optional<Booking> optionalBooking = bookingRepository.findById(bookingId);
         if (optionalBooking.isEmpty()) {
@@ -137,32 +152,28 @@ public class BookingServiceImpl implements BookingService {
                     currentStatus, targetStatus, bookingId));
         }
 
-        Optional<Driver> driverOpt = bookingRequestDto.getDriverId().flatMap(id -> {
-            Optional<Driver> existing = driverRepository.findById(id);
-            if (existing.isPresent()) return existing;
-            try {
-                Driver newDriver = Driver.builder()
-                        .name("Driver #" + id)
-                        .licenseNumber("LIC-" + id + "-" + System.currentTimeMillis())
-                        .phoneNumber("9999999999")
-                        .isAvailable(true)
-                        .build();
-                return Optional.of(driverRepository.save(newDriver));
-            } catch (Exception e) {
-                logger.error("Failed to auto-create driver record for ID {}", id, e);
-                return Optional.empty();
+        // Prevent double driver assignment if booking is already accepted by another driver
+        if (targetStatus == BookingStatus.DRIVER_ACCEPTED && booking.getBookingStatus() == BookingStatus.DRIVER_ACCEPTED) {
+            if (booking.getDriver() != null && bookingRequestDto.getDriverId().isPresent()
+                    && !booking.getDriver().getId().equals(bookingRequestDto.getDriverId().get())) {
+                throw new IllegalStateException(String.format("Booking %d has already been accepted by driver %d",
+                        bookingId, booking.getDriver().getId()));
             }
-        });
+        }
+
+        Optional<Driver> driverOpt = bookingRequestDto.getDriverId().flatMap(driverRepository::findById);
+        if (bookingRequestDto.getDriverId().isPresent() && driverOpt.isEmpty()) {
+            throw new IllegalArgumentException("Driver not found with ID: " + bookingRequestDto.getDriverId().get());
+        }
 
         if (targetStatus == BookingStatus.DRIVER_ASSIGNED || targetStatus == BookingStatus.DRIVER_ACCEPTED) {
             if (driverOpt.isEmpty()) {
                 throw new IllegalArgumentException("Driver ID is required for state " + targetStatus);
             }
             Long driverId = driverOpt.get().getId();
-            try {
-                driverRepository.reserveDriverIfAvailable(driverId);
-            } catch (Exception e) {
-                logger.warn("Driver {} reservation warning: {}", driverId, e.getMessage());
+            int reservedRows = driverRepository.reserveDriverIfAvailable(driverId);
+            if (reservedRows == 0 && (booking.getDriver() == null || !booking.getDriver().getId().equals(driverId))) {
+                logger.warn("Driver {} was not available for reservation on booking {}", driverId, bookingId);
             }
         }
 
@@ -184,7 +195,17 @@ public class BookingServiceImpl implements BookingService {
                 .rideId(bookingId)
                 .payload(responseDto)
                 .build();
-        kafkaEventProducerService.sendDomainEvent(eventTopic, event);
+
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaEventProducerService.sendDomainEvent(eventTopic, event);
+                }
+            });
+        } else {
+            kafkaEventProducerService.sendDomainEvent(eventTopic, event);
+        }
 
         return responseDto;
     }
@@ -272,9 +293,9 @@ public class BookingServiceImpl implements BookingService {
                 }
             }
 
-            // Fallback: reserve any available driver from repository
-            List<Driver> allDrivers = driverRepository.findAll();
-            for (Driver d : allDrivers) {
+            // Fallback: reserve any available driver from top candidates in repository
+            List<Driver> availableDrivers = driverRepository.findTop10ByIsAvailableTrue();
+            for (Driver d : availableDrivers) {
                 if (d.getIsAvailable() == null || d.getIsAvailable()) {
                     Long dId = d.getId();
                     int reservedRows = driverRepository.reserveDriverIfAvailable(dId);

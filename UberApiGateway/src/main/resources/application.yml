@@ -1,6 +1,9 @@
 server:
   port: ${GATEWAY_PORT:8080}
 
+jwt:
+  secret: ${JWT_SECRET:default_uber_jwt_secret_key_change_in_production_min_256_bits_12345}
+
 spring:
   application:
     name: UberApiGateway
@@ -25,28 +28,29 @@ spring:
           lower-case-service-id: false
       routes:
         - id: auth-service
-          uri: lb://UBERAUTHSERVICE
+          uri: ${AUTH_SERVICE_URL:lb://UBERAUTHSERVICE}
           predicates:
             - Path=/api/v1/auth/**
         - id: booking-service
-          uri: lb://UBERBOOKINGSERVICE
+          uri: ${BOOKING_SERVICE_URL:lb://UBERBOOKINGSERVICE}
           predicates:
             - Path=/api/v1/bookings/**, /api/v1/booking/**
         - id: location-service
-          uri: lb://UBERPROJECT-LOCATIONSERVICE
+          uri: ${LOCATION_SERVICE_URL:lb://UBERPROJECT-LOCATIONSERVICE}
           predicates:
             - Path=/api/v1/location/**, /api/location/**
         - id: review-service
-          uri: lb://UBERREVIEWSERVICE
+          uri: ${REVIEW_SERVICE_URL:lb://UBERREVIEWSERVICE}
           predicates:
             - Path=/api/v1/reviews/**, /api/v1/review/**
         - id: socket-service
-          uri: lb://CLIENTSOCKETSERVICE
+          uri: ${SOCKET_SERVICE_URL:lb://CLIENTSOCKETSERVICE}
           predicates:
             - Path=/ws/**, /api/socket/**
 
 eureka:
   client:
+    registry-fetch-interval-seconds: 5
     serviceUrl:
       defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
   instance:
