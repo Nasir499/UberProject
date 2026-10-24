@@ -1,8 +1,8 @@
 # 🚖 Uber Distributed Microservices Platform
 
-A production-ready, high-throughput distributed system built with **Spring Boot 3**, **Spring Cloud Gateway**, **Netflix Eureka**, **Apache Kafka**, **Redis GEO**, and **Docker**.
+A multi-service, Uber-style ride-hailing backend built with **Spring Boot**, **Spring Cloud Gateway**, **Netflix Eureka**, **Apache Kafka**, **Redis GEO**, **MySQL**, and **Docker Compose**.
 
-Designed and implemented following modern enterprise microservices patterns for high availability, fault tolerance, concurrency safety, and real-time event streaming.
+The repository brings the gateway, service-discovery server, and individual backend services together for local development and demonstrates service discovery, event-driven communication, location lookup, and concurrency-control patterns.
 
 ---
 
@@ -84,8 +84,8 @@ graph TD
 ### Start the Complete System
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/UberBackend.git
-cd UberBackend
+git clone https://github.com/Nasir499/UberProject.git
+cd UberProject
 
 # Create local environment configuration
 cp .env.example .env
@@ -97,7 +97,7 @@ docker compose up -d --build
 ### Verify Running Stack
 - **API Gateway**: `http://localhost:8080`
 - **Eureka Service Dashboard**: `http://localhost:8761`
-- **MySQL DB**: `localhost:3306`
+- **MySQL DB**: `localhost:3307` (host port mapped to container port `3306`)
 - **Redis Cache**: `localhost:6379`
 - **Kafka Cluster**: `localhost:9092`
 
@@ -106,7 +106,7 @@ docker compose up -d --build
 ## 🧪 Testing & Concurrency Verification
 
 ### Run Concurrency Test Suite
-Executes 100 simultaneous threads competing for 1 driver:
+From the repository root, run the test in the booking service directory if the test class is present in your checkout:
 ```bash
 cd UberBookingService
 ./gradlew test --tests com.example.uberbookingservice.BookingConcurrencyTest
