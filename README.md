@@ -1,123 +1,254 @@
-# 🚖 Uber Distributed Microservices Platform
+# Uber-Style Ride-Hailing Backend
 
-A multi-service, Uber-style ride-hailing backend built with **Spring Boot**, **Spring Cloud Gateway**, **Netflix Eureka**, **Apache Kafka**, **Redis GEO**, **MySQL**, and **Docker Compose**.
+A Java/Spring Boot microservices project that models core ride-hailing workflows: passenger/driver authentication, booking state changes, nearby-driver lookup, review management, and real-time ride notifications.
 
-The repository brings the gateway, service-discovery server, and individual backend services together for local development and demonstrates service discovery, event-driven communication, location lookup, and concurrency-control patterns.
+The repository contains seven runnable applications plus a shared entity/model library. It is a learning and portfolio project; the README describes the source currently present and does not claim production-grade reliability or security.
 
----
-
-## 📐 System Architecture
+## Architecture
 
 ```mermaid
-graph TD
-    Client[Rider / Driver Mobile & Web Clients] -->|HTTP / REST| Gateway[Spring Cloud Gateway :8080]
-    Client -->|WebSocket STOMP| SocketService[Socket Service :8086]
-
-    subgraph Service Mesh & Routing
-        Gateway -->|Service Discovery| Eureka[Netflix Eureka Server :8761]
-        Gateway -->|/api/v1/auth/**| AuthService[Auth Service :7474]
-        Gateway -->|/api/v1/bookings/**| BookingService[Booking Service :7777]
-        Gateway -->|/api/v1/location/**| LocationService[Location Service :7478]
-        Gateway -->|/api/v1/reviews/**| ReviewService[Review Service :7475]
-    end
-
-    subgraph Data & Event Persistence Layer
-        AuthService -->|User / Auth Domain| MySQL[(MySQL Database)]
-        BookingService -->|Ride Domain & Locks| MySQL
-        ReviewService -->|Rating / Review Domain| MySQL
-        LocationService -->|Spatial Coordinates| Redis[(Redis GEO Cache)]
-    end
-
-    subgraph Event Streaming & Real-Time Push
-        BookingService -->|Publish Domain Events| Kafka{{Apache Kafka Cluster}}
-        Kafka -->|ride.requested.v1| SocketService
-        Kafka -->|ride.assigned.v1| LocationService
-        SocketService -->|Push Updates| Client
-    end
+flowchart LR
+    Client[HTTP client / WebSocket client] --> Gateway[Spring Cloud Gateway :8080]
+    Gateway --> Eureka[Eureka :8761]
+    Gateway --> Auth[Auth :7474]
+    Gateway --> Booking[Booking :7777]
+    Gateway --> Location[Location :7478]
+    Gateway --> Review[Review :7475]
+    Gateway --> Socket[Socket :8086]
+    Auth --> MySQL[(MySQL)]
+    Booking --> MySQL
+    Review --> MySQL
+    Socket --> MySQL
+    Location --> Redis[(Redis GEO)]
+    Booking --> Location
+    Booking --> Socket
+    Booking --> Kafka[(Kafka)]
+    Kafka --> Socket
+    Socket --> WS[STOMP topics]
 ```
 
----
+### Applications and ports
 
-## 🛠️ Tech Stack & Service Breakdown
+| Module | Default port | Responsibility |
+|---|---:|---|
+| `UberServiceDiscovery` | 8761 | Eureka server; service registration/discovery |
+| `UberApiGateway` | 8080 | Routes HTTP requests to backend services and exposes actuator endpoints configured in the gateway |
+| `UberProject-AuthService` | 7474 | Passenger/driver signup and sign-in; JWT is issued in an HTTP cookie |
+| `UberBookingService` | 7777 | Creates bookings, validates booking status transitions, attempts driver reservation, and emits booking events |
+| `UberProject-LocationService` | 7478 | Stores driver coordinates in Redis GEO and queries nearby drivers |
+| `UberReviewService` | 7475 | Creates, lists, retrieves, updates, and deletes reviews |
+| `ClientSocketService` | 8086 | WebSocket/STOMP messaging and Kafka-event forwarding to client topics |
+| `Uber-entityService` | Library | Shared JPA entities and domain enums used by the services |
 
-| Service | Port | Key Technologies | Responsibility |
-| :--- | :--- | :--- | :--- |
-| **`UberApiGateway`** | `8080` | Spring Cloud Gateway, Reactive Streams | Edge router, CORS handling, `X-Correlation-ID` header filter |
-| **`UberServiceDiscovery`** | `8761` | Netflix Eureka Server | Dynamic service registration & client load balancing |
-| **`UberProject-AuthService`**| `7474` | Spring Security, JWT, Spring Data JPA | User authentication, token issuance, passenger/driver registration |
-| **`UberBookingService`** | `7777` | Spring Boot, Spring Kafka, Optimistic Locking | Ride lifecycle state machine, atomic driver assignment, idempotency |
-| **`UberProject-LocationService`** | `7478` | Redis GEO, Jedis, Spring Data Redis | High-frequency GPS updates, spatial radius search (`GEOSEARCH`) |
-| **`UberReviewService`** | `7475` | Spring Data JPA, MySQL | Post-trip ratings, driver/passenger reviews |
-| **`ClientSocketService`** | `8086` | Spring WebSocket, STOMP, Kafka Listener | Real-time driver location and ride status streaming to clients |
+Java modules use the Java 21 toolchain, Spring Boot 3.4.3, and Spring Cloud 2024.0.0 in the inspected Gradle build files.
 
----
+## Main request flows
 
-## 🔑 Key Engineering Patterns
+### Create a booking
 
-### 1. Concurrency Control & Double Assignment Prevention
-- **Atomic Driver Reservation**: Utilizes conditional SQL updates `UPDATE driver SET driver_state='RESERVED', is_available=false WHERE id=? AND is_available=true AND driver_state='AVAILABLE'` to guarantee that parallel booking attempts for the same driver yield **exactly 1 success** and **controlled failure responses** for all competing requests.
-- **Optimistic Locking (`@Version`)**: Entity versioning prevents lost updates during concurrent ride state modifications.
+1. A client sends a booking request through the gateway to the booking service.
+2. `BookingController` accepts `POST /api/v1/booking` and optionally reads the `Idempotency-Key` header.
+3. `BookingServiceImpl` creates a booking with initial status `REQUESTED` and saves it through `BookingRepository`.
+4. When a transaction is active, it registers Kafka publication for after the database transaction commits.
+5. It asynchronously asks the location service for nearby drivers and then attempts to notify drivers through the socket service.
 
-### 2. Idempotency Support (`Idempotency-Key`)
-- API endpoints support an `Idempotency-Key` header. Duplicate booking submissions return the cached original response without creating duplicate ride entities.
+**Reliability note:** after-commit publication is not a transactional outbox. If the process stops after the database commit but before Kafka accepts the event, the booking can persist without the event being published. The producer logs asynchronous send failures but does not implement a durable retry/outbox flow in the inspected code.
 
-### 3. State Machines & Invariants
-- **Ride State Lifecycle**: `REQUESTED` ➔ `DRIVER_ASSIGNED` ➔ `DRIVER_ACCEPTED` ➔ `DRIVER_ARRIVING` ➔ `RIDE_STARTED` ➔ `COMPLETED` (or `CANCELLED`). Illegal transitions (e.g. `COMPLETED` ➔ `REQUESTED`) are strictly validated and rejected.
-- **Driver State Lifecycle**: `OFFLINE` ➔ `AVAILABLE` ➔ `RESERVED` ➔ `ON_TRIP` ➔ `AVAILABLE`.
+### Driver location lookup
 
-### 4. Event-Driven Messaging with Kafka
-- Standardized `DomainEvent<T>` envelope containing `eventId`, `eventType`, `rideId`, `timestamp`, `correlationId`, and `producer`.
-- Topics: `ride.requested.v1`, `ride.driver.assigned.v1`, `ride.started.v1`, `ride.completed.v1`, `ride.cancelled.v1`.
+The location controller exposes endpoints under `/api/location`. Driver coordinates are stored and queried using Redis GEO operations. The location service is called by the booking service when looking for nearby drivers.
 
-### 5. High-Throughput Redis GEO Location Tracking
-- Real-time GPS coordinates bypass MySQL to avoid database write amplification.
-- Fast spatial radius search (`within 5 km radius`) using Redis `GEOADD` and `GEOSEARCH` (`Point(longitude, latitude)`).
+### Real-time notifications
 
----
+The socket service accepts ride requests and uses STOMP destinations including `/topic/rideRequest`, `/topic/rideResponse`, and `/topic/passengerNotification`. Its Kafka listener forwards consumed event payloads to shared topics. These are broadcast topics in the current code; do not assume per-user delivery or authorization from the topic names alone.
 
-## 🚀 Quickstart with Docker Compose
+## HTTP endpoint reference
+
+These paths are defined by the inspected controllers. The gateway has route predicates for some alternate paths, but the backend controller mapping remains authoritative.
+
+### Authentication — `/api/v1/auth`
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/signup/passenger` | Register a passenger |
+| `POST` | `/signup/driver` | Register a driver |
+| `POST` | `/signin/passenger` | Sign in a passenger |
+| `POST` | `/signin/driver` | Sign in a driver |
+
+Successful sign-in sets a cookie named `jwt`. Review cookie flags and authentication/authorization coverage before exposing the service publicly.
+
+### Booking — `/api/v1/booking`
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/` | Create a booking; optional `Idempotency-Key` header |
+| `PATCH` or `POST` | `/{bookingId}` | Update booking status and optionally associate a driver |
+
+The create request uses `CreateBookingDto`; the update request uses `UpdateBookingRequestDto`. Valid status transitions are checked through the shared `BookingStatus` domain model.
+
+### Driver location — `/api/location`
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/setDriverLocation` or `/drivers` | Save driver coordinates |
+| `POST` | `/nearby/drivers` | Find nearby drivers from latitude/longitude |
+| `GET` | `/driver/{driverId}` | Fetch a driver's stored location |
+
+### Reviews — `/api/v1/reviews`
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/` | Create a review |
+| `GET` | `/` | List reviews |
+| `GET` | `/{reviewId}` | Fetch one review |
+| `PUT` | `/{reviewId}` | Update a review |
+| `DELETE` | `/{reviewId}` | Delete a review |
+
+### Socket service
+
+- HTTP ride-request endpoint: `POST /api/socket/newride`
+- STOMP application destination: `/app/rideResponse/{userId}`
+- Topics used in the current implementation include `/topic/rideRequest`, `/topic/rideResponse`, and `/topic/passengerNotification`.
+
+The WebSocket endpoint path is configured in the socket service's WebSocket configuration. Connect to that configured endpoint before subscribing or sending STOMP messages.
+
+## Technology stack
+
+- **Language/runtime:** Java 21
+- **Application framework:** Spring Boot 3.4.3
+- **Service discovery/routing:** Netflix Eureka, Spring Cloud Gateway, Spring Cloud LoadBalancer
+- **Persistence:** Spring Data JPA, MySQL, Flyway in the shared entity module
+- **Location indexing:** Redis GEO, Spring Data Redis/Jedis
+- **Messaging:** Apache Kafka, Spring Kafka
+- **Real-time messaging:** Spring WebSocket, STOMP
+- **HTTP service clients:** Retrofit and Spring `RestTemplate` in the relevant service code
+- **Local infrastructure:** Docker Compose
+
+## Local development
 
 ### Prerequisites
-- Docker Engine 24.0+
-- Docker Compose 2.20+
 
-### Start the Complete System
+- JDK 21
+- Docker Engine and Docker Compose
+- Network access to download Gradle/Maven dependencies
+
+### Configure environment
+
+Copy the example environment file:
+
 ```bash
-# Clone the repository
-git clone https://github.com/Nasir499/UberProject.git
-cd UberProject
-
-# Create local environment configuration
 cp .env.example .env
-
-# Launch all microservices, databases, Redis, Kafka, and Eureka
-docker compose up -d --build
 ```
 
-### Verify Running Stack
-- **API Gateway**: `http://localhost:8080`
-- **Eureka Service Dashboard**: `http://localhost:8761`
-- **MySQL DB**: `localhost:3307` (host port mapped to container port `3306`)
-- **Redis Cache**: `localhost:6379`
-- **Kafka Cluster**: `localhost:9092`
+Review every value before running. The Compose file directly consumes `DB_PASSWORD` and `JWT_SECRET`; individual Spring services also use variables such as `DB_URL`, `DB_USERNAME`, `KAFKA_BOOTSTRAP_SERVERS`, `EUREKA_SERVER_URL`, `REDIS_HOST`, and `REDIS_PORT`. Compose supplies service-specific URLs for container-to-container communication.
 
----
+**Local-only defaults:** the Compose file has development fallback credentials. Replace them for any shared or deployed environment. Do not commit real secrets.
 
-## 🧪 Testing & Concurrency Verification
+### Build the shared entity library and service JARs
 
-### Run Concurrency Test Suite
-From the repository root, run the test in the booking service directory if the test class is present in your checkout:
+The Dockerfiles copy prebuilt JARs from each module's `build/libs/` directory. They do not compile the Java source inside the Docker image, so build the artifacts before asking Compose to build the images.
+
+From the repository root, publish the shared entity library to Maven Local first:
+
 ```bash
-cd UberBookingService
-./gradlew test --tests com.example.uberbookingservice.BookingConcurrencyTest
+./gradlew -p Uber-entityService clean publishToMavenLocal
 ```
 
----
+Then build the runnable modules:
 
-## 📚 Architecture Decision Records (ADRs)
+```bash
+./gradlew -p UberServiceDiscovery clean bootJar
+./gradlew -p UberApiGateway clean bootJar
+./gradlew -p UberProject-AuthService clean bootJar
+./gradlew -p UberBookingService clean bootJar
+./gradlew -p UberProject-LocationService clean bootJar
+./gradlew -p UberReviewService clean bootJar
+./gradlew -p ClientSocketService clean bootJar
+```
 
-- [ADR 0001: Microservices Architecture & Eureka Service Discovery](docs/adr/0001-microservices-and-service-discovery.md)
-- [ADR 0002: API Gateway & Request Correlation Tracing](docs/adr/0002-api-gateway-and-correlation-ids.md)
-- [ADR 0003: Redis GEO for High-Frequency Location Tracking](docs/adr/0003-redis-geo-for-location-service.md)
-- [ADR 0004: Event-Driven Architecture with Kafka](docs/adr/0004-kafka-event-driven-architecture.md)
-- [ADR 0005: Concurrency Control & Idempotency Strategy](docs/adr/0005-concurrency-and-idempotency-control.md)
+If a dependency cannot be resolved, check the shared library publication and each module's Gradle configuration before proceeding.
+
+### Start infrastructure and services
+
+After the JARs exist:
+
+```bash
+docker compose up --build -d
+docker compose ps
+docker compose logs -f
+```
+
+Published host ports from the Compose file:
+
+| Component | Local address |
+|---|---|
+| Gateway | `http://localhost:8080` |
+| Eureka dashboard | `http://localhost:8761` |
+| MySQL | `localhost:3307` (container port 3306) |
+| Redis | `localhost:6379` |
+| Kafka host listener | `localhost:9092` |
+
+Inside Compose, services use Docker DNS names such as `mysql:3306`, `redis:6379`, and `kafka:29092`. Wait for dependencies and service registration to complete before testing API calls.
+
+Stop the stack with:
+
+```bash
+docker compose down
+```
+
+To remove the persisted MySQL volume as well, use `docker compose down -v`; this deletes local database data.
+
+## Tests
+
+The repository contains JUnit tests for selected behavior, including booking status transitions, idempotency service behavior, booking API integration, concurrent driver reservation, gateway correlation IDs, and review operations.
+
+Run an individual module's tests from the repository root, for example:
+
+```bash
+./gradlew -p UberBookingService test
+./gradlew -p UberApiGateway test
+```
+
+Run the booking concurrency test by its class name:
+
+```bash
+./gradlew -p UberBookingService test --tests com.example.uberbookingservice.BookingConcurrencyTest
+```
+
+These commands document how to invoke the test tasks; they are not a claim that every test currently passes in every environment.
+
+## Known implementation boundaries
+
+- **Kafka/database consistency:** booking events are sent after commit, not through a transactional outbox.
+- **Idempotency scope:** booking idempotency uses Redis with a 10-minute TTL when available and an in-memory fallback. The fallback is process-local, and the read-then-create flow is not an atomic distributed reservation for a key.
+- **Kafka delivery:** producer send failures are logged; the inspected producer does not provide a durable retry/DLT workflow.
+- **WebSocket fan-out:** the Kafka consumer forwards messages to shared STOMP topics. Treat these as broadcasts unless authorization and user-specific routing are added and verified.
+- **Container build:** Docker images require the module JARs to be built beforehand.
+- **Development configuration:** replace fallback credentials and review permissive CORS settings before deployment.
+
+## Repository layout
+
+```text
+UberProject/
+├── UberApiGateway/
+├── UberServiceDiscovery/
+├── UberProject-AuthService/
+├── UberBookingService/
+├── UberProject-LocationService/
+├── UberReviewService/
+├── ClientSocketService/
+├── Uber-entityService/
+├── docker-compose.yml
+├── .env.example
+└── gradlew
+```
+
+## Further documentation
+
+- [API documentation and testing notes](API_DOCUMENTATION_AND_TESTING.md)
+- [Architecture decision records](docs/adr/)
+- [Project review notes](project_review.md)
+
+## License
+
+Check the repository's license file for the applicable reuse and distribution terms.
